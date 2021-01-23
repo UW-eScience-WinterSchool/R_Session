@@ -17,6 +17,7 @@ _____
 
 This session will use RStudio Cloud, please sign up [here](https://rstudio.cloud/).
 
+
 We will cover several topics:
 
 ## First Part: Data Frame operations
@@ -34,4 +35,3 @@ We will cover several topics:
   - Gaussian Regression
   - Logistic Regression (binomial case)
 
-### To run this online you could use the materials in [this LINK](https://rstudio.cloud/project/888508).
