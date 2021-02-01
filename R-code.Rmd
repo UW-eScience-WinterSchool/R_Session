@@ -23,7 +23,7 @@ Let's collect the file we created in Python:
 
 ```{r}
 # the location
-MyFile='https://github.com/UW-eScience-WinterSchool/R_Session/raw/main/demohdi.RDS'
+MyFile='https://github.com/UW-eScience-WinterSchool/R_Session/raw/main/demohdimil.RDS'
 
 
 # if location is website:
@@ -114,12 +114,12 @@ aggregate(data=fromPy,
 ```
 Alternatively:
 ```{r}
-aggregate(data=fromPy[,c(2:7,13)],.~Regime_type,FUN=median)
+aggregate(data=fromPy[,c(2:7)],.~Regime_type,FUN=median)
 ```
 
 Or:
 ```{r}
-fromPy[,c(2:7,13)]%>%
+fromPy[,c(2:7)]%>%
     group_by(Regime_type) %>% 
     summarise_all(list(median))
 ```
@@ -164,16 +164,16 @@ base + geom_boxplot(aes(x=Regime_type,y=HDI)) + coord_flip()
 Let me see the correlation between democracy score and HDI:
 
 ```{r}
-base + geom_point(aes(x=Overall_score,y=HDI)) + coord_flip()
+base + geom_point(aes(x=DemoIndex,y=HDI)) + coord_flip()
 ```
 
 Let me see all the the correlations:
 ```{r}
 library(ggcorrplot)
 #all correlations:
-allCorr = cor(fromPy[,c(3:7,13)])
+allCorr = cor(fromPy[,c(3:7,12)])
 #all p_values
-allPvals=cor_pmat(fromPy[,c(3:7,13)])
+allPvals=cor_pmat(fromPy[,c(3:7,12)])
 ```
 
 ```{r}
@@ -185,19 +185,49 @@ ggcorrplot(allCorr,
            tl.cex = 10)
 ```
 
-The correlation 
+The correlation between HDI and Military expenses, while showing Democracy Index regime type:
+
+```{r}
+scat= base + geom_point(aes(HDI,
+                        mil_expend,
+            color=Regime_type))
+scat
+```
+
+```{r}
+choice=c('Peru','United States')
+condition=ifelse(fromPy$Country %in% choice,
+                 fromPy$Country,
+                 '')
+
+scat + geom_text(x=fromPy$HDI,
+                 y=fromPy$mil_expend,
+                 aes(label=condition))
+```
+With the help of **ggrepel**:
+
+```{r}
+library(ggrepel)
+
+scat + geom_text_repel(x=fromPy$HDI,
+                       y=fromPy$mil_expend,
+                       aes(label=condition),
+                       angle=60,
+                       nudge_y = 8)
+```
 
 
 
+## Clustering via partitioning
 
-## Unsupervised ML: Clustering via partitioning
+Let's find an alternative regime type using an advanced technique.
 
 ### Part 1: Preparing data
 
 **a.** Subset the data frame:
 
 ```{r}
-dfClus=fromPy[,c(2,13,16)]
+dfClus=fromPy[,c(3:7)]
 ```
 
 
@@ -221,10 +251,10 @@ dfClus=dfClus[complete.cases(dfClus),]
 ```
 
 
-**d.** Decide distance method and compute distance matrix:
+**d.** Compute distance matrix:
 ```{r}
 library(cluster)
-dfClus_D=cluster::daisy(x=dfClus,metric="gower")
+dfClus_D=cluster::daisy(x=dfClus)
 ```
 
 
@@ -235,93 +265,64 @@ dfClus_D=cluster::daisy(x=dfClus,metric="gower")
 ```{r}
 set.seed(123)
 numberOfClusters=4
-res.pam = pam(x=dfClus_D,k = numberOfClusters,cluster.only = F)
+res.pam = pam(x=dfClus_D,
+              k = numberOfClusters,
+              cluster.only = F)
 ```
 
 
 ### 2. Save clustering results. 
 
 ```{r}
-fromPy$pam=as.factor(res.pam$clustering)
+fromPy$pam=res.pam$clustering
 ```
 
-You can see who are the members:
+### 3. Verify cluster ordering. 
 
 ```{r}
-fromPy[fromPy$pam==1,'Country']
+aggregate(data=fromPy[,c(3:7,15)], .~pam,median)
 ```
 
-You can request belonging:
-
+Give the right level:
 ```{r}
-fromPy[fromPy$Country=="Peru",'pam']
-```
-
-
-### 3. Evaluate Results.
-
-**3.a** Global Report
-
-
-```{r}
-pamEval=as.data.frame.array(silhouette(res.pam))
-pamEval$country=row.names(pamEval)
-row.names(pamEval)=NULL
-aggregate(data=pamEval,sil_width~cluster,FUN=mean)
+fromPy$pam= factor(fromPy$pam,
+       level=c(4,3,2,1),
+       label=c(1,2,3,4),
+       ordered = T)
+       
 ```
 
 
-
-**3.b** Individual report
+### 3. Detect poor results.
 
 ```{r}
-head(pamEval)
+base=ggplot(data=fromPy,
+            aes(x=HDI,
+                y=mil_expend,
+                color=pam))
+scat=base + geom_point()
+scat
 ```
 
-**3.c** Detecting anomalies
 
 ```{r}
-pamEval[pamEval$sil_width<0,]
-```
-
-```{r}
-pamEval_O=pamEval[order(pamEval$cluster,pamEval$sil_width),]
-```
-
-```{r}
-clusterVal=1
-pamEval=pamEval_O[pamEval_O$cluster==clusterVal,]
-
-base=ggplot(data=pamEval,
-             aes(x=country,
-                 y=sil_width))
-sil1= base + geom_bar(stat='identity')
-sil1= sil1 + scale_x_discrete(limits=pamEval$country)
-sil1= sil1 + theme(axis.text.x = element_text(angle = 80,
-                                              size = 6,
-                                              hjust = 1))
-sil1
-```
-```{r}
-clusterVal=2
-pamEval=pamEval_O[pamEval_O$cluster==clusterVal,]
-
-base=ggplot(data=pamEval,
-             aes(x=country,
-                 y=sil_width))
-sil2= base + geom_bar(stat='identity',fill='grey')
-sil2= sil2 + scale_x_discrete(limits=pamEval$country)
-sil2= sil2 + theme(axis.text.x = element_text(angle = 80,
-                                              size = 6,
-                                              hjust = 1))
-sil2= sil2 + labs(x=NULL)
-sil2
+# get the evaluations
+eval=as.data.frame(res.pam$silinfo$widths)
+# get countries poorly clustered
+badPAM=eval[eval$sil_width<0,]
+badPAM=row.names(badPAM)
 ```
 
 ```{r}
-library(ggpubr)
+condition=ifelse(fromPy$Country %in% badPAM,
+                 fromPy$Country,
+                 '')
 
-ggarrange(sil1,sil2,ncol = 1)
+scat + geom_text_repel(x=fromPy$HDI,
+                       y=fromPy$mil_expend,
+                       label=condition,
+                       angle=60,
+                       nudge_y = 8)
 ```
 
 We should see how the world likes like based on democracy clusters, follow this steps:
@@ -362,12 +363,9 @@ head(mapWorld@data)
 Let's add our data to the map data:
 
 ```{r, eval=TRUE}
-mapWorldAll=merge(mapWorld, #map first
+mapWorldVars=merge(mapWorld, #map first
                    fromPy, 
-                   by.x='NAME', # common column
-                   by.y='Country', # common column
-                   all.x=F) # reduced map.
-
+                   by='ISO3') 
 ```
 
 
@@ -375,12 +373,12 @@ Now paint the world (get colors from [here](http://colorbrewer2.org/)):
 
 ```{r, eval=TRUE}
 # what:
-varToPlot=mapWorldAll$pam
+varToPlot=mapWorldVars$pam
 
 #which colors:
 library(RColorBrewer)
 colorForScale='YlOrRd'
-palette = brewer.pal(numberOfClusters, colorForScale)
+palette = brewer.pal(4, colorForScale)
 
 # plotting:
 
@@ -388,10 +386,10 @@ palette = brewer.pal(numberOfClusters, colorForScale)
 plot(mapWorld,col='grey',border=0) 
 
 ## top layer
-plot(mapWorldAll, col = palette[varToPlot],border=F,add=T)
+plot(mapWorldVars, col = palette[varToPlot],border=F,add=T)
 
 
-legend('left', legend = c("TOP","GOOD","BAD","POOR"), 
+legend('left', legend = c("POOR","BAD","GOOD","TOP"), 
        fill = palette,
        cex = 0.6, 
        bty = "n",
@@ -405,12 +403,14 @@ This may be the easiest functions:
 ```{r}
 # hypothesis 1:
 
-# The more democratic and the better HDI 
-# the less contaminated a country is, 
-# controlling continent
-#row.names(fromPy)=fromPy$Country
-hypo1=formula(co2_in_MT~ dem_FA + Humandevelopmentindex + Continent)
-regre1=glm(hypo1,data = fromPy,family = 'gaussian')
+# The more countries expend in armed forces the better HDI 
+
+
+
+hypo1=formula(HDI~mil_expend)
+regre1=lm(hypo1,data = fromPy)
+
+
 ```
 
 ```{r}
@@ -424,45 +424,24 @@ plot_models(regre1,vline.color = "grey")
 ```
 
 
-
-
 ```{r}
 # hypothesis 2:
 
-# The democracy and level of contamination
-# affect  the leve level of human development,
-# controlling continent
-
-hypo2=formula(HDIdico~ dem_FA + co2_in_MT + Continent)
-regre2=glm(hypo2,data = fromPy,family = "binomial")
+# The more countries expend in armed forces and the more democratic, the better HDI 
+hypo2=formula(HDI~mil_expend  + DemoIndex)
+regre2=lm(hypo2,data = fromPy)
 ```
 
 ```{r}
 summary(regre2)
 ```
 
-
 ```{r}
-# interpracion usando marginal effects:
-library(margins)
-# 
-(model = margins(regre2))
+anova(regre1,regre2)
 ```
 ```{r}
-(margins=summary(model))
+library(sjPlot)
+
+plot_models(regre2)
 ```
-
-
-```{r}
-
-base= ggplot(margins,aes(x=factor, y=AME)) + geom_point()
-plot2 = base + theme(axis.text.x = element_text(angle = 80,
-                                              size = 6,
-                                              hjust = 1))
-plot2    
-```
-```{r}
-plot2 +  geom_errorbar(aes(ymin=lower, ymax=upper))
-```
-
 
