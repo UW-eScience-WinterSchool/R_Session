@@ -1,0 +1,468 @@
+<br> 
+<center><img src="https://i.imgur.com/hkb7Bq7.png" width="500"></center>
+
+
+### Prof. José Manuel Magallanes, PhD
+
+* Associate Professor, Departamento de Ciencias Sociales, Pontificia Universidad Católica del Perú, [jmagallanes@pucp.edu.pe](mailto:jmagallanes@pucp.edu.pe)
+
+* Visiting Associate Professor, Evans School of Public Policy and Governance / Senior Data Science Fellow, eScience Institute, University of Washington, [magajm@uw.edu](mailto:magajm@uw.edu)
+
+_____
+
+
+# Session 2: Introduction to R.
+
+_____
+
+# The data frame in R
+
+## Collecting data:
+
+Let's collect the file we created in Python:
+
+```{r}
+# the location
+MyFile='https://github.com/UW-eScience-WinterSchool/R_Session/raw/main/demohdi.RDS'
+
+
+# if location is website:
+MyFile=url(MyFile)
+
+# get the data:
+fromPy=readRDS(file = MyFile) # no need for a library
+row.names(fromPy)=NULL   # reset indexes from Python.
+```
+
+Always check the data types:
+
+```{r}
+str(fromPy)  #,width = 70,strict.width='cut'
+```
+
+
+## Querying data frames:
+
+* What is the country with highest HDI?
+```{r}
+# you could get more than one
+fromPy[fromPy$HDI==max(fromPy$HDI),]
+```
+
+```{r}
+#or
+fromPy[fromPy$HDI==max(fromPy$HDI),'Country']
+```
+
+You also have:
+```{r}
+#or
+fromPy[which.max(fromPy$HDI),'Country']
+```
+
+Alternatively:
+
+
+```{r}
+library(magrittr)
+library(dplyr)
+
+fromPy%>%
+    filter(HDI==max(HDI))%>%
+    select(Country)
+```
+
+
+
+* What is the authoritarian country with highest HDI?
+
+```{r}
+
+AUTH=fromPy[fromPy$Regime_type %in% 'Authoritarian',]
+AUTH[which.max(AUTH$HDI),'Country']
+```
+
+Alternatively,
+```{r}
+fromPy%>%
+    filter(Regime_type %in% 'Authoritarian')%>%
+    filter(HDI==max(HDI))%>%
+    select(Country)
+```
+
+## Aggregating data frames:
+
+The average HDI per continent:
+
+```{r}
+aggregate(data=fromPy,HDI ~ Regime_type,FUN=mean)
+```
+
+```{r}
+fromPy%>%
+    group_by(Regime_type) %>% 
+    summarise(meanHDI = mean(HDI))
+```
+
+The median of the democracy components:
+
+```{r}
+aggregate(data=fromPy,
+          cbind(Electoral_process_and_pluralism,Functioning_of_government,Political_participation,Political_culture,Civil_liberties)~Regime_type,
+          FUN=median)
+
+```
+Alternatively:
+```{r}
+aggregate(data=fromPy[,c(2:7,13)],.~Regime_type,FUN=median)
+```
+
+Or:
+```{r}
+fromPy[,c(2:7,13)]%>%
+    group_by(Regime_type) %>% 
+    summarise_all(list(median))
+```
+
+
+## Creating new data:
+
+One column:
+
+```{r}
+fromPy$HDIdico=ifelse(fromPy$HDI>
+                          median(fromPy$HDI),1,0)
+```
+
+
+## Basic plotting
+
+Let me plot HDI, a numerical variable:
+```{r, eval=TRUE}
+library(ggplot2)
+
+base=ggplot(data=fromPy)
+base + geom_histogram(aes(x=HDI))
+```
+
+
+Or:
+```{r}
+base + geom_boxplot(aes(y=HDI))
+```
+
+Let me plot Regime type, a categorical variable:
+
+```{r}
+base + geom_bar(aes(x=Regime_type))
+```
+
+Let me see the association between regime type and HDI:
+```{r}
+base + geom_boxplot(aes(x=Regime_type,y=HDI)) + coord_flip()
+```
+Let me see the correlation between democracy score and HDI:
+
+```{r}
+base + geom_point(aes(x=Overall_score,y=HDI)) + coord_flip()
+```
+
+Let me see all the the correlations:
+```{r}
+library(ggcorrplot)
+#all correlations:
+allCorr = cor(fromPy[,c(3:7,13)])
+#all p_values
+allPvals=cor_pmat(fromPy[,c(3:7,13)])
+```
+
+```{r}
+ggcorrplot(allCorr,
+           p.mat = allPvals,
+           type = "lower",
+           lab = TRUE,
+           insig = "blank",
+           tl.cex = 10)
+```
+
+The correlation 
+
+
+
+
+## Unsupervised ML: Clustering via partitioning
+
+### Part 1: Preparing data
+
+**a.** Subset the data frame:
+
+```{r}
+dfClus=fromPy[,c(2,13,16)]
+```
+
+
+**b.** Rename the rows:
+```{r}
+#from
+head(dfClus)
+```
+
+```{r}
+#to
+row.names(dfClus)=fromPy$Country
+head(dfClus)
+```
+
+**c.** Keep only complete data:
+
+
+```{r}
+dfClus=dfClus[complete.cases(dfClus),]
+```
+
+
+**d.** Decide distance method and compute distance matrix:
+```{r}
+library(cluster)
+dfClus_D=cluster::daisy(x=dfClus,metric="gower")
+```
+
+
+### Part 2: Clustering process
+
+### 1. Apply function: you need to indicate the amount of clusters required.
+
+```{r}
+set.seed(123)
+numberOfClusters=4
+res.pam = pam(x=dfClus_D,k = numberOfClusters,cluster.only = F)
+```
+
+
+### 2. Save clustering results. 
+
+```{r}
+fromPy$pam=as.factor(res.pam$clustering)
+```
+
+You can see who are the members:
+
+```{r}
+fromPy[fromPy$pam==1,'Country']
+```
+
+You can request belonging:
+
+```{r}
+fromPy[fromPy$Country=="Peru",'pam']
+```
+
+
+### 3. Evaluate Results.
+
+**3.a** Global Report
+
+
+```{r}
+pamEval=as.data.frame.array(silhouette(res.pam))
+pamEval$country=row.names(pamEval)
+row.names(pamEval)=NULL
+aggregate(data=pamEval,sil_width~cluster,FUN=mean)
+```
+
+
+
+**3.b** Individual report
+
+```{r}
+head(pamEval)
+```
+
+**3.c** Detecting anomalies
+
+```{r}
+pamEval[pamEval$sil_width<0,]
+```
+
+```{r}
+pamEval_O=pamEval[order(pamEval$cluster,pamEval$sil_width),]
+```
+
+```{r}
+clusterVal=1
+pamEval=pamEval_O[pamEval_O$cluster==clusterVal,]
+
+base=ggplot(data=pamEval,
+             aes(x=country,
+                 y=sil_width))
+sil1= base + geom_bar(stat='identity')
+sil1= sil1 + scale_x_discrete(limits=pamEval$country)
+sil1= sil1 + theme(axis.text.x = element_text(angle = 80,
+                                              size = 6,
+                                              hjust = 1))
+sil1
+```
+```{r}
+clusterVal=2
+pamEval=pamEval_O[pamEval_O$cluster==clusterVal,]
+
+base=ggplot(data=pamEval,
+             aes(x=country,
+                 y=sil_width))
+sil2= base + geom_bar(stat='identity',fill='grey')
+sil2= sil2 + scale_x_discrete(limits=pamEval$country)
+sil2= sil2 + theme(axis.text.x = element_text(angle = 80,
+                                              size = 6,
+                                              hjust = 1))
+sil2= sil2 + labs(x=NULL)
+sil2
+```
+
+```{r}
+library(ggpubr)
+
+ggarrange(sil1,sil2,ncol = 1)
+```
+
+We should see how the world likes like based on democracy clusters, follow this steps:
+
+a. Download the world map from [here](https://github.com/eScienceUW-WinterSchool-2020/RSession/raw/master/map/world_map.zip).
+b. Unzip the file you downloaded in a folder.
+c. Upload the unzipped files into [MAPSHAPER](https://mapshaper.org/). No need to uplod the text file.
+d. Transform the map into a TOPOJSON format. Save the topojson into your computer.
+e. Get a github account. Create a repository and upload the topojson file.
+f. Get the download link and use it in the next code.
+
+```{r}
+# installed?
+#library(sp)
+#library(geojsonio)
+library(rgdal)
+
+fromGit="https://github.com/eScienceUW-WinterSchool-2020/RSession/raw/master/map/world_map.json" # link desde github
+
+
+mapWorld <- rgdal::readOGR(fromGit,stringsAsFactors = FALSE)
+```
+
+
+We have the map:
+
+```{r, eval=TRUE}
+plot(mapWorld)
+```
+
+The plan is to color the countries according to a group, which will result from clustering. 
+
+```{r, eval=TRUE}
+# see data in map
+head(mapWorld@data)
+```
+
+Let's add our data to the map data:
+
+```{r, eval=TRUE}
+mapWorldAll=merge(mapWorld, #map first
+                   fromPy, 
+                   by.x='NAME', # common column
+                   by.y='Country', # common column
+                   all.x=F) # reduced map.
+
+```
+
+
+Now paint the world (get colors from [here](http://colorbrewer2.org/)):
+
+```{r, eval=TRUE}
+# what:
+varToPlot=mapWorldAll$pam
+
+#which colors:
+library(RColorBrewer)
+colorForScale='YlOrRd'
+palette = brewer.pal(numberOfClusters, colorForScale)
+
+# plotting:
+
+## base layer - coloring missing data
+plot(mapWorld,col='grey',border=0) 
+
+## top layer
+plot(mapWorldAll, col = palette[varToPlot],border=F,add=T)
+
+
+legend('left', legend = c("TOP","GOOD","BAD","POOR"), 
+       fill = palette,
+       cex = 0.6, 
+       bty = "n",
+       title="Clusters")
+```
+
+## Regression
+
+This may be the easiest functions:
+
+```{r}
+# hypothesis 1:
+
+# The more democratic and the better HDI 
+# the less contaminated a country is, 
+# controlling continent
+#row.names(fromPy)=fromPy$Country
+hypo1=formula(co2_in_MT~ dem_FA + Humandevelopmentindex + Continent)
+regre1=glm(hypo1,data = fromPy,family = 'gaussian')
+```
+
+```{r}
+summary(regre1)
+```
+
+```{r}
+library(sjPlot)
+
+plot_models(regre1,vline.color = "grey")
+```
+
+
+
+
+```{r}
+# hypothesis 2:
+
+# The democracy and level of contamination
+# affect  the leve level of human development,
+# controlling continent
+
+hypo2=formula(HDIdico~ dem_FA + co2_in_MT + Continent)
+regre2=glm(hypo2,data = fromPy,family = "binomial")
+```
+
+```{r}
+summary(regre2)
+```
+
+
+```{r}
+# interpracion usando marginal effects:
+library(margins)
+# 
+(model = margins(regre2))
+```
+```{r}
+(margins=summary(model))
+```
+
+
+```{r}
+
+base= ggplot(margins,aes(x=factor, y=AME)) + geom_point()
+plot2 = base + theme(axis.text.x = element_text(angle = 80,
+                                              size = 6,
+                                              hjust = 1))
+plot2    
+```
+```{r}
+plot2 +  geom_errorbar(aes(ymin=lower, ymax=upper))
+```
+
+
