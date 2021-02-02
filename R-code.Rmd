@@ -15,19 +15,36 @@ _____
 
 _____
 
-# The data frame in R
+# Opening data files
 
-## Collecting data:
+There are different ways to open files. Each requires a different function. But if you install **rio** you may find this easier. **AFTER** installing that library, activate it:
+```{r}
+library(rio)
+```
 
-Let's collect the file we created in Python:
+The function you use is:
+```{r}
+linkXL='https://github.com/UW-eScience-WinterSchool/R_Session/raw/main/demohdimil.xlsx'
+dataExcel=import(linkXL)
+```
+
+You have the data now. You can see WHAT you have like this:
+
+```{r}
+str(dataExcel)
+```
+
+You have  the data frame you created in Python in the previous session. But you may have noticed that you have the variable *Regime_type* as a **char**, not as an ordinal. You now see you lost that in this Excel version. Let's see the R version.
+
+The R version does **NOT** use *rio*:
 
 ```{r}
 # the location
-MyFile='https://github.com/UW-eScience-WinterSchool/R_Session/raw/main/demohdimil.RDS'
+linkR='https://github.com/UW-eScience-WinterSchool/R_Session/raw/main/demohdimil.RDS'
 
 
 # if location is website:
-MyFile=url(MyFile)
+MyFile=url(linkR)
 
 # get the data:
 fromPy=readRDS(file = MyFile) # no need for a library
@@ -37,11 +54,14 @@ row.names(fromPy)=NULL   # reset indexes from Python.
 Always check the data types:
 
 ```{r}
-str(fromPy)  #,width = 70,strict.width='cut'
+str(fromPy,width = 60,strict.width='cut')
 ```
 
+Let's work with this data frame.
 
-## Querying data frames:
+## Operations on data frames:
+
+### QUERYING:
 
 * What is the country with highest HDI?
 ```{r}
@@ -90,7 +110,8 @@ fromPy%>%
     select(Country)
 ```
 
-## Aggregating data frames:
+
+##s AGGREGATING
 
 The average HDI per continent:
 
@@ -125,9 +146,9 @@ fromPy[,c(2:7)]%>%
 ```
 
 
-## Creating new data:
+### MODIFYING:
 
-One column:
+Let's create one column:
 
 ```{r}
 fromPy$HDIdico=ifelse(fromPy$HDI>
@@ -137,16 +158,22 @@ fromPy$HDIdico=ifelse(fromPy$HDI>
 
 ## Basic plotting
 
+The most common library to prepare visuals is **ggplot2**. Let me show you how it works:
+
 Let me plot HDI, a numerical variable:
+
 ```{r, eval=TRUE}
 library(ggplot2)
-
+# the base has the data
 base=ggplot(data=fromPy)
+
+# then you add a particular "geom"
 base + geom_histogram(aes(x=HDI))
 ```
 
 
-Or:
+a different **geom**:
+
 ```{r}
 base + geom_boxplot(aes(y=HDI))
 ```
@@ -159,15 +186,17 @@ base + geom_bar(aes(x=Regime_type))
 
 Let me see the association between regime type and HDI:
 ```{r}
-base + geom_boxplot(aes(x=Regime_type,y=HDI)) + coord_flip()
+base + geom_boxplot(aes(x=Regime_type,
+                        y=HDI))
 ```
 Let me see the correlation between democracy score and HDI:
 
 ```{r}
-base + geom_point(aes(x=DemoIndex,y=HDI)) + coord_flip()
+base + geom_point(aes(x=DemoIndex,
+                      y=HDI)) 
 ```
 
-Let me see all the the correlations:
+Let me see all the the correlations. For that you need the coefficients and the p_values.
 ```{r}
 library(ggcorrplot)
 #all correlations:
@@ -176,6 +205,7 @@ allCorr = cor(fromPy[,c(3:7,12)])
 allPvals=cor_pmat(fromPy[,c(3:7,12)])
 ```
 
+This is easy using **ggcorrplot**:
 ```{r}
 ggcorrplot(allCorr,
            p.mat = allPvals,
@@ -188,23 +218,31 @@ ggcorrplot(allCorr,
 The correlation between HDI and Military expenses, while showing Democracy Index regime type:
 
 ```{r}
+# save result
 scat= base + geom_point(aes(HDI,
                         mil_expend,
             color=Regime_type))
+# show result
 scat
 ```
+Let me **focus** on some countries:
 
 ```{r}
-choice=c('Peru','United States')
-condition=ifelse(fromPy$Country %in% choice,
+#what countries:
+some=c('Peru','United States')
+
+# condition: if contry in some keep the name,
+#            otherwise turn the name into ''.
+condition=ifelse(fromPy$Country %in% some,
                  fromPy$Country,
                  '')
 
+# on top of "scat":
 scat + geom_text(x=fromPy$HDI,
                  y=fromPy$mil_expend,
                  aes(label=condition))
 ```
-With the help of **ggrepel**:
+The *geom_text* requires more work, which can be eased with the help of **ggrepel**:
 
 ```{r}
 library(ggrepel)
@@ -260,10 +298,10 @@ dfClus_D=cluster::daisy(x=dfClus)
 
 ### Part 2: Clustering process
 
-### 1. Apply function: you need to indicate the amount of clusters required.
+#### 1. Apply function: you need to indicate the amount of clusters required.
 
 ```{r}
-set.seed(123)
+set.seed(123) # for replicability
 numberOfClusters=4
 res.pam = pam(x=dfClus_D,
               k = numberOfClusters,
@@ -271,19 +309,19 @@ res.pam = pam(x=dfClus_D,
 ```
 
 
-### 2. Save clustering results. 
+#### 2. Save clustering results. 
 
 ```{r}
 fromPy$pam=res.pam$clustering
 ```
 
-### 3. Verify cluster ordering. 
+#### 3. Verify cluster ordering. 
 
 ```{r}
 aggregate(data=fromPy[,c(3:7,15)], .~pam,median)
 ```
 
-Give the right level:
+Assign the right label:
 ```{r}
 fromPy$pam= factor(fromPy$pam,
        level=c(4,3,2,1),
@@ -292,8 +330,7 @@ fromPy$pam= factor(fromPy$pam,
        
 ```
 
-
-### 3. Detect poor results.
+Then,
 
 ```{r}
 base=ggplot(data=fromPy,
@@ -304,14 +341,25 @@ scat=base + geom_point()
 scat
 ```
 
+### Part 3. Detect poor results.
+
+The object **res.pam** is saving some important info. One of them is the **silhouette widths**. You know a case has not been well clustered if this value is negative.
 
 ```{r}
-# get the evaluations
+# get the silhouettes widths:
 eval=as.data.frame(res.pam$silinfo$widths)
+
 # get countries poorly clustered
 badPAM=eval[eval$sil_width<0,]
+
+# result is in the row names:
 badPAM=row.names(badPAM)
+
+#these are the bad clustered countries:
+badPAM
 ```
+
+Let me show these in a scatterplot:
 
 ```{r}
 condition=ifelse(fromPy$Country %in% badPAM,
@@ -325,13 +373,13 @@ scat + geom_text_repel(x=fromPy$HDI,
                        nudge_y = 8)
 ```
 
-We should see how the world likes like based on democracy clusters, follow this steps:
+We should see how the world looks like based on democracy clusters, follow this steps:
 
 a. Download the world map from [here](https://github.com/eScienceUW-WinterSchool-2020/RSession/raw/master/map/world_map.zip).
 b. Unzip the file you downloaded in a folder.
 c. Upload the unzipped files into [MAPSHAPER](https://mapshaper.org/). No need to uplod the text file.
 d. Transform the map into a TOPOJSON format. Save the topojson into your computer.
-e. Get a github account. Create a repository and upload the topojson file.
+e. Get a github account. Create a repository and upload the geojson file.
 f. Get the download link and use it in the next code.
 
 ```{r}
@@ -398,24 +446,24 @@ legend('left', legend = c("POOR","BAD","GOOD","TOP"),
 
 ## Regression
 
-This may be the easiest functions:
+These may be the easiest functions:
 
 ```{r}
 # hypothesis 1:
 
 # The more countries expend in armed forces the better HDI 
-
-
-
 hypo1=formula(HDI~mil_expend)
 regre1=lm(hypo1,data = fromPy)
 
 
 ```
 
+See the result:
 ```{r}
 summary(regre1)
 ```
+
+You can plot that:
 
 ```{r}
 library(sjPlot)
@@ -423,6 +471,7 @@ library(sjPlot)
 plot_models(regre1,vline.color = "grey")
 ```
 
+Let's try another hypothesis:
 
 ```{r}
 # hypothesis 2:
@@ -432,16 +481,18 @@ hypo2=formula(HDI~mil_expend  + DemoIndex)
 regre2=lm(hypo2,data = fromPy)
 ```
 
+Result:
 ```{r}
 summary(regre2)
 ```
 
 ```{r}
-anova(regre1,regre2)
-```
-```{r}
-library(sjPlot)
-
 plot_models(regre2)
 ```
+
+Which one may I choose?
+```{r}
+anova(regre1,regre2)
+```
+
 
