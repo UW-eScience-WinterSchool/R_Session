@@ -1,0 +1,553 @@
+<br> 
+<center><img src="https://i.imgur.com/hkb7Bq7.png" width="500"></center>
+
+<a id='home'></a>
+
+### Prof. José Manuel Magallanes, PhD
+
+* Associate Professor, Departamento de Ciencias Sociales, Pontificia Universidad Católica del Perú, [jmagallanes@pucp.edu.pe](mailto:jmagallanes@pucp.edu.pe)
+
+* Visiting Associate Professor, Evans School of Public Policy and Governance / Senior Data Science Fellow, eScience Institute, University of Washington, [magajm@uw.edu](mailto:magajm@uw.edu)
+
+_____
+
+
+# Session 2: Introduction to R.
+
+Session contents:
+
+* [Opening Data Files](#open)
+* [Operations on Data frames](#operations)
+* [Basic plotting](#plotting)
+* [Basic Clustering ](#clustering)
+* [Basic Regression](#regress)
+
+_____
+
+<a id='open'></a>
+
+# Opening data files
+
+There are different ways to open files. Each requires a different function. But if you install **rio** you may find this easier. **AFTER** installing that library, activate it:
+```{r}
+library(rio)
+```
+
+The function you use is:
+```{r}
+linkXL='https://github.com/UW-eScience-WinterSchool/Python_Session/raw/main/demohdimil.xlsx'
+dataExcel=import(linkXL)
+```
+
+You have the data now. You can see WHAT you have like this:
+
+```{r}
+str(dataExcel)
+```
+
+You have  the data frame you created in Python in the previous session. But you may have noticed that here you have the variable *Regime_type* as a **char**, not as an ordinal. You now see you lost that in this Excel version. Let's see the R version.
+
+The R version does **NOT** use *rio*:
+
+```{r}
+# the location
+linkR='https://github.com/UW-eScience-WinterSchool/Python_Session/raw/main/demohdimil.RDS'
+
+
+# if location is website:
+MyFile=url(linkR)
+
+# get the data:
+fromPy=readRDS(file = MyFile) # no need for a library
+row.names(fromPy)=NULL   # reset indexes from Python.
+```
+
+Always check the data types:
+
+```{r}
+str(fromPy,width = 60,strict.width='cut')
+```
+
+Let's work with this data frame.
+
+[home](#home)
+
+_______
+
+
+
+<a id='operations'></a>
+
+
+## Operations on data frames:
+
+Let's see some operation on data frames:
+
+### QUERYING:
+
+* What is the country with highest HDI?
+
+```{r}
+# you could get more than one
+fromPy[fromPy$HDI==max(fromPy$HDI,na.rm=TRUE),]
+```
+
+```{r}
+#or
+fromPy[which(fromPy$HDI==max(fromPy$HDI,na.rm = T)),]
+```
+
+You also have:
+```{r}
+#or
+fromPy[which.max(fromPy$HDI),'Country']
+```
+
+Alternatively:
+
+
+```{r}
+library(magrittr)
+library(dplyr)
+
+fromPy%>%
+    filter(HDI==max(HDI,na.rm = T))#%>%select(Country)
+```
+
+
+
+* What is the authoritarian country with highest HDI?
+
+```{r}
+
+AUTH=fromPy[fromPy$Regime_type %in% 'Authoritarian',]
+AUTH[which.max(AUTH$HDI),'Country']
+```
+
+Alternatively,
+```{r}
+fromPy%>%
+    filter(Regime_type %in% 'Authoritarian')%>%
+    filter(HDI==max(HDI))%>%
+    select(Country)
+```
+
+
+### AGGREGATING
+
+The average HDI per continent:
+
+```{r}
+aggregate(data=fromPy,HDI ~ Regime_type,FUN=mean)
+```
+
+```{r}
+fromPy%>%
+    group_by(Regime_type) %>% 
+    summarise(meanHDI = mean(HDI))
+```
+
+The median of the democracy components:
+
+```{r}
+aggregate(data=fromPy[,c(2:7)],.~Regime_type,FUN=median)
+```
+
+Or:
+```{r}
+fromPy[,c(2:7)]%>%
+    group_by(Regime_type) %>% 
+    summarise_all(list(median))
+```
+
+
+### MODIFYING:
+
+Let's create one column:
+
+```{r}
+condition=fromPy$HDI>median(fromPy$HDI,na.rm = T)
+fromPy$HDIdico=ifelse(condition,1,0)
+```
+
+
+[home](#home)
+
+______
+
+<a id='plotting'></a>
+
+## Basic Plotting
+
+The most common library to prepare visuals is **ggplot2**. Let me show you how it works:
+
+Let me plot HDI, a numerical variable:
+
+```{r, eval=TRUE}
+library(ggplot2)
+# the base has the data
+base=ggplot(data=fromPy)
+
+# then you add a particular "geom"
+base + geom_histogram(aes(x=HDI)) #x for histogram
+```
+
+
+a different **geom**:
+
+```{r}
+base + geom_boxplot(aes(y=HDI))#y for boxplot
+```
+
+Let me plot Regime type, a categorical variable:
+
+```{r}
+base + geom_bar(aes(x=Regime_type)) 
+```
+
+Let me see the association between regime type and HDI:
+```{r}
+base + geom_boxplot(aes(x=Regime_type,
+                        y=HDI))
+```
+
+Let me see the correlation between democracy score and HDI:
+
+```{r}
+base + geom_point(aes(x=DemoIndex,
+                      y=HDI)) 
+```
+
+Let me see all the the correlations. For that you need the coefficients and the p_values,and the installation and use of **ggcorrplot**.
+```{r}
+library(ggcorrplot)
+#all correlations:
+allCorr = cor(fromPy[,c(3:7,12)],
+              use = 'pairwise.complete.obs')
+#all p_values
+allPvals=cor_pmat(fromPy[,c(3:7,12)],
+                  use = 'pairwise.complete.obs')
+```
+
+Once you have those values, use them here:
+```{r}
+ggcorrplot(allCorr,
+           p.mat = allPvals,
+           type = "lower",
+           lab = TRUE,
+           insig = "blank",
+           tl.cex = 10)
+```
+
+The correlation between HDI and Military expenses, while showing Democracy Index regime type:
+
+```{r}
+# save result
+scat= base + geom_point(aes(HDI,
+                        mil_expend,
+            color=Regime_type))
+# show result
+scat
+```
+Let me **focus** on some countries:
+
+```{r}
+#what countries:
+some=c('Peru','United States')
+
+# condition: if contry in some keep the name,
+#            otherwise turn the name into ''.
+condition=ifelse(fromPy$Country %in% some,
+                 fromPy$Country,
+                 '')
+
+# on top of "scat":
+scat + geom_text(x=fromPy$HDI,
+                 y=fromPy$mil_expend,
+                 aes(label=condition))
+```
+
+The *geom_text* requires more work, which can be eased with the help of **ggrepel**:
+
+```{r}
+library(ggrepel)
+
+scat + geom_text_repel(x=fromPy$HDI,
+                       y=fromPy$mil_expend,
+                       aes(label=condition),
+                       angle=60,
+                       nudge_y = 8)
+```
+
+
+_______
+
+<a id='clustering'></a>
+
+
+
+## A Clustering example
+
+Let's find an alternative "regime type" using an advanced technique.
+
+### Part 1: Preparing data
+
+**a.** Subset the data frame:
+
+```{r}
+dfClus=fromPy[,c(3:7)] #columns for clustering
+```
+
+
+**b.** Rename the rows:
+```{r}
+#from
+head(dfClus)
+```
+When country is row name, it is not part of the data:
+```{r}
+#to
+row.names(dfClus)=fromPy$Country
+head(dfClus)
+```
+
+**c.** Keep only complete data:
+
+
+```{r}
+dfClus=dfClus[complete.cases(dfClus),]
+```
+
+
+**d.** Compute distance matrix:
+```{r}
+library(cluster)
+dfClus_D=cluster::daisy(x=dfClus)
+```
+
+
+### Part 2: Clustering process
+
+#### 1. Apply function: you need to indicate the amount of clusters required.
+
+```{r}
+set.seed(123) # for replicability
+numberOfClusters=4
+
+res.pam = pam(x=dfClus_D,
+              k = numberOfClusters,
+              cluster.only = F)
+```
+
+
+#### 2. Save clustering results. 
+
+```{r}
+fromPy$pam=res.pam$clustering
+```
+
+#### 3. Verify cluster ordering. 
+
+```{r}
+aggregate(data=fromPy[,c(3:7,15)], .~pam,median)
+```
+
+Assign the right label:
+```{r}
+fromPy$pam= factor(fromPy$pam,
+       level=c(4,3,2,1), #ascending
+       label=c(1,2,3,4), #labels
+       ordered = T)
+       
+```
+
+We could compare:
+
+```{r}
+table(fromPy$Regime_type,fromPy$pam)
+```
+As you see, the clustering technique did not have the same countries in each level proposed by *The Economist*. All the countries in The Economist considered *Authoritarian* are also in that category in our clusters, but ours consider two more countries from what The Economist considers *Hybrid regime*.
+
+Let me plot the clusters in a scatter plot: 
+
+```{r}
+base=ggplot(data=fromPy)
+scat=base + geom_point(aes(x=HDI,
+                           y=mil_expend,
+                           color=pam))
+scat
+```
+
+### Part 3. Detect poor results.
+
+The object **res.pam** is saving some important info. One of them is the **silhouette widths**. You know a case has not been well clustered if this value is negative.
+
+```{r}
+# get the silhouettes widths:
+eval=as.data.frame(res.pam$silinfo$widths)
+
+# get countries poorly clustered
+badPAM=eval[eval$sil_width<0,]
+
+
+#these are the bad clustered countries:
+badPAM
+```
+
+Let me keep only the names:
+```{r}
+# names of countries are in the row names:
+badPAMNames=row.names(badPAM)
+```
+
+Let me show these in a scatter plot:
+
+```{r}
+condition=ifelse(fromPy$Country %in% badPAMNames,
+                 fromPy$Country,
+                 '')
+
+scat + geom_text_repel(x=fromPy$HDI,
+                       y=fromPy$mil_expend,
+                       label=condition,
+                       angle=60,
+                       nudge_y = 8)
+```
+
+We should see how the world looks like based on democracy clusters. Let me upload the map I created in Python:
+
+```{r}
+fromGit="https://github.com/UW-eScience-WinterSchool/Python_Session/raw/main/mymap.geojson" # link desde github
+library(sf)
+mapWorld=read_sf(fromGit)
+```
+
+
+The plan is to color the countries according to a group, which will result from clustering. 
+
+
+```{r, eval=TRUE}
+# see data in map
+head(mapWorld)
+```
+
+Let's add our data to the map data by merging:
+
+```{r, eval=TRUE}
+mapWorldVars=merge(mapWorld, #map first
+                   fromPy, 
+                   by='ISO3') 
+```
+
+
+Let's do it step by step:
+
+```{r}
+library(ggplot2)
+# plot original map
+base=ggplot(data=mapWorld) + geom_sf(fill='grey90',
+                                     color=NA) + theme_classic()
+
+base #base map
+
+```
+
+Now paint the countries (ggplot decides color):
+
+```{r}
+clusterMap= base + geom_sf(data=mapWorldVars,
+                           aes(fill=pam),
+                           color=NA) # color of border
+clusterMap 
+```
+
+Now you choose the palette (get it from [here](http://colorbrewer2.org/)):
+
+```{r}
+clusterMap+ scale_fill_brewer(palette ='YlOrRd')
+```
+
+Some more customization:
+
+```{r}
+#previously
+theLegLabels=c('1_worst',2,3,'4_best')
+theLegTitle="Democracy Level\n(grey is missing)"
+
+#now
+clusterMap+ scale_fill_brewer(palette ='YlOrRd',
+                              direction = -1, # color order
+                              labels=theLegLabels,
+                              name=theLegTitle)
+```
+
+```{r}
+BadData=mapWorldVars[mapWorldVars$Country%in%badPAMNames,]
+clusterMapBad= base + geom_sf(data=BadData,
+                           fill='orange',
+                           color=NA) # color of border
+clusterMapBad
+```
+
+[home](#home)
+
+________
+
+<a id='regress'></a>
+
+## Regression
+
+These may be the easiest functions:
+
+```{r}
+# hypothesis 1:
+
+# The more countries expend in armed forces 
+# the better HDI:
+
+hypo1=formula(HDI~mil_expend)
+regre1=lm(hypo1,data = fromPy)
+
+
+```
+
+See the result:
+```{r}
+summary(regre1)
+```
+
+You can plot that:
+
+```{r}
+library(dotwhisker)
+
+dwplot(regre1) 
+```
+
+Let's try another hypothesis:
+
+```{r}
+# hypothesis 2:
+
+# The more countries expend in armed forces and the more democratic, the better HDI 
+hypo2=formula(HDI~mil_expend  + DemoIndex)
+regre2=lm(hypo2,data = fromPy)
+```
+
+Result:
+```{r}
+summary(regre2)
+```
+
+```{r}
+dwplot(regre2) + geom_vline(xintercept = 0)
+```
+
+Which one should I choose?
+```{r}
+anova(regre1,regre2)
+```
+
+
+[home](#home)
+
