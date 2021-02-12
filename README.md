@@ -26,12 +26,8 @@ We will cover several topics:
 * Aggregation
 * Modification
 
-## Second Part: Advanced functionalities
+## Second Part: Statistics
 
-* Unsupervised ML
-  - Confirmatory Factor Analysis
-  - Clustering
-* Supervised ML
-  - Gaussian Regression
-  - Logistic Regression (binomial case)
+* Clustering
+* Linear Regression
 
