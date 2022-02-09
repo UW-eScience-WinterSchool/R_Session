@@ -28,12 +28,13 @@ _____
 
 # Opening data files
 
-There are different ways to open files. Each requires a different function. In our case, we will open an **rds** file:
+There are different ways to open files. Each requires a different function. In our case, we will open an **rds** file like this:
 ```{r}
 worldData=readRDS('allmerged.rds')
 ```
 
 If you have a format different than **rds**, like Excel or Stata, you may try:
+
 ```{r, eval=FALSE}
 library(rio)
 worldData=import('somename.extension')
@@ -46,28 +47,18 @@ You have the data now. You can see WHAT you have like this:
 str(worldData)
 ```
 
-This is the data frame you created in Python in the previous session. And you may have noticed the variable *Regime_type* has kept the **ordinal** conversion we did. If had saved that file in a different formar, you would have lost that change.
+This is the data frame you created in Python in the previous session. And you may have noticed the variable *Regime_type* has kept the **ordinal** conversion we did. If had saved that file in a different format, you would have lost that change .
 
-The R version does **NOT** use *rio*:
-
+However, something of Python remains:
 ```{r}
-# the location
-linkR='https://github.com/UW-eScience-WinterSchool/Python_Session/raw/main/demohdimil.RDS'
-
-
-# if location is website:
-MyFile=url(linkR)
-
-# get the data:
-fromPy=readRDS(file = MyFile) # no need for a library
-row.names(fromPy)=NULL   # reset indexes from Python.
+head(worldData)
 ```
 
-Always check the data types:
-
+The index starts with '0', so we only reset the index for R:
 ```{r}
-str(fromPy,width = 60,strict.width='cut')
+row.names(worldData)=NULL   # reset indexes from Python.
 ```
+
 
 Let's work with this data frame.
 
@@ -86,22 +77,22 @@ Let's see some operation on data frames:
 
 ### QUERYING:
 
-* What is the country with highest HDI?
+* What is the country with highest HDIndex?
 
 ```{r}
 # you could get more than one
-fromPy[fromPy$HDI==max(fromPy$HDI,na.rm=TRUE),]
+worldData[worldData$HDIndex==max(worldData$HDIndex,na.rm=TRUE),]
 ```
 
 ```{r}
 #or
-fromPy[which(fromPy$HDI==max(fromPy$HDI,na.rm = T)),]
+worldData[which(worldData$HDIndex==max(worldData$HDIndex,na.rm = T)),]
 ```
 
 You also have:
 ```{r}
 #or
-fromPy[which.max(fromPy$HDI),'Country']
+worldData[which.max(worldData$HDIndex),'Country']
 ```
 
 Alternatively:
@@ -111,52 +102,54 @@ Alternatively:
 library(magrittr)
 library(dplyr)
 
-fromPy%>%
-    filter(HDI==max(HDI,na.rm = T))#%>%select(Country)
+worldData%>%
+    filter(HDIndex==max(HDIndex,na.rm = T))#%>%select(Country)
 ```
 
 
 
-* What is the authoritarian country with highest HDI?
+* What is the authoritarian country with highest HDIndex?
 
 ```{r}
 
-AUTH=fromPy[fromPy$Regime_type %in% 'Authoritarian',]
-AUTH[which.max(AUTH$HDI),'Country']
+AUTH=worldData[worldData$Regime_type %in% 'Authoritarian',]
+AUTH[which.max(AUTH$HDIndex),'Country']
 ```
 
 Alternatively,
 ```{r}
-fromPy%>%
+worldData%>%
     filter(Regime_type %in% 'Authoritarian')%>%
-    filter(HDI==max(HDI))%>%
+    filter(HDIndex==max(HDIndex))%>%
     select(Country)
 ```
 
 
 ### AGGREGATING
 
-The average HDI per continent:
+The average DefenseIndex per Regime:
 
 ```{r}
-aggregate(data=fromPy,HDI ~ Regime_type,FUN=mean)
+aggregate(data=worldData,DefenseIndex ~ Regime_type,FUN=mean)
 ```
 
 ```{r}
-fromPy%>%
+worldData%>%
     group_by(Regime_type) %>% 
-    summarise(meanHDI = mean(HDI))
+    summarise(meanHDIndex = mean(DefenseIndex))
 ```
 
-The median of the democracy components:
+The median of the democracy components by regime:
 
 ```{r}
-aggregate(data=fromPy[,c(2:7)],.~Regime_type,FUN=median)
+aggregate(data=worldData[,c(2,4:8)],
+          .~Regime_type,
+          FUN=median)
 ```
 
 Or:
 ```{r}
-fromPy[,c(2:7)]%>%
+worldData[,c(2,4:8)]%>%
     group_by(Regime_type) %>% 
     summarise_all(list(median))
 ```
@@ -167,8 +160,10 @@ fromPy[,c(2:7)]%>%
 Let's create one column:
 
 ```{r}
-condition=fromPy$HDI>median(fromPy$HDI,na.rm = T)
-fromPy$HDIdico=ifelse(condition,1,0)
+condition=worldData$HDIndex>median(worldData$HDIndex,na.rm = T)
+worldData$HDIndexdico=ifelse(condition,1,0)
+#result
+table(worldData$HDIndexdico)
 ```
 
 
@@ -182,22 +177,22 @@ ______
 
 The most common library to prepare visuals is **ggplot2**. Let me show you how it works:
 
-Let me plot HDI, a numerical variable:
+Let me plot HDIndex, a numerical variable:
 
 ```{r, eval=TRUE}
 library(ggplot2)
 # the base has the data
-base=ggplot(data=fromPy)
+base=ggplot(data=worldData)
 
 # then you add a particular "geom"
-base + geom_histogram(aes(x=HDI)) #x for histogram
+base + geom_histogram(aes(x=HDIndex)) #x for histogram
 ```
 
 
 a different **geom**:
 
 ```{r}
-base + geom_boxplot(aes(y=HDI))#y for boxplot
+base + geom_boxplot(aes(y=HDIndex))#y for boxplot
 ```
 
 Let me plot Regime type, a categorical variable:
@@ -206,27 +201,30 @@ Let me plot Regime type, a categorical variable:
 base + geom_bar(aes(x=Regime_type)) 
 ```
 
-Let me see the association between regime type and HDI:
+Let me see the association between regime type and HDIndex:
 ```{r}
 base + geom_boxplot(aes(x=Regime_type,
-                        y=HDI))
+                        y=HDIndex))
 ```
 
-Let me see the correlation between democracy score and HDI:
+Let me see the correlation between democracy index and Human Development Index:
 
 ```{r}
 base + geom_point(aes(x=DemoIndex,
-                      y=HDI)) 
+                      y=HDIndex)) 
 ```
 
-Let me see all the the correlations. For that you need the coefficients and the p_values,and the installation and use of **ggcorrplot**.
+Let me see  the correlations among the main three variables we have. For that you need the coefficients and the p_values,and the installation and use of **ggcorrplot**.
+
+
 ```{r}
 library(ggcorrplot)
 #all correlations:
-allCorr = cor(fromPy[,c(3:7,12)],
+indexes=c("HDIndex","DemoIndex","DefenseIndex")
+allCorr = cor(worldData[,indexes],
               use = 'pairwise.complete.obs')
 #all p_values
-allPvals=cor_pmat(fromPy[,c(3:7,12)],
+allPvals=cor_pmat(worldData[,indexes],
                   use = 'pairwise.complete.obs')
 ```
 
@@ -240,12 +238,12 @@ ggcorrplot(allCorr,
            tl.cex = 10)
 ```
 
-The correlation between HDI and Military expenses, while showing Democracy Index regime type:
+The correlation between HDIndex and Military expenses, while showing Democracy Index regime type:
 
 ```{r}
 # save result
-scat= base + geom_point(aes(HDI,
-                        mil_expend,
+scat= base + geom_point(aes(HDIndex,
+                        DefenseIndex,
             color=Regime_type))
 # show result
 scat
@@ -258,13 +256,13 @@ some=c('Peru','United States')
 
 # condition: if contry in some keep the name,
 #            otherwise turn the name into ''.
-condition=ifelse(fromPy$Country %in% some,
-                 fromPy$Country,
+condition=ifelse(worldData$Country %in% some,
+                 worldData$Country,
                  '')
 
 # on top of "scat":
-scat + geom_text(x=fromPy$HDI,
-                 y=fromPy$mil_expend,
+scat + geom_text(x=worldData$HDIndex,
+                 y=worldData$DefenseIndex,
                  aes(label=condition))
 ```
 
@@ -273,8 +271,8 @@ The *geom_text* requires more work, which can be eased with the help of **ggrepe
 ```{r}
 library(ggrepel)
 
-scat + geom_text_repel(x=fromPy$HDI,
-                       y=fromPy$mil_expend,
+scat + geom_text_repel(x=worldData$HDIndex,
+                       y=worldData$DefenseIndex,
                        aes(label=condition),
                        angle=60,
                        nudge_y = 8)
@@ -296,19 +294,17 @@ Let's find an alternative "regime type" using an advanced technique.
 **a.** Subset the data frame:
 
 ```{r}
-dfClus=fromPy[,c(3:7)] #columns for clustering
+dfClus=worldData[,c(3,9,13)] #columns for clustering
+head(dfClus)
 ```
 
 
 **b.** Rename the rows:
-```{r}
-#from
-head(dfClus)
-```
+
 When country is row name, it is not part of the data:
 ```{r}
 #to
-row.names(dfClus)=fromPy$Country
+row.names(dfClus)=worldData$Country
 head(dfClus)
 ```
 
@@ -323,7 +319,7 @@ dfClus=dfClus[complete.cases(dfClus),]
 **d.** Compute distance matrix:
 ```{r}
 library(cluster)
-dfClus_D=cluster::daisy(x=dfClus)
+dfClus_D=cluster::daisy(x=dfClus,metric = 'gower')
 ```
 
 
@@ -344,18 +340,20 @@ res.pam = pam(x=dfClus_D,
 #### 2. Save clustering results. 
 
 ```{r}
-fromPy$pam=res.pam$clustering
+worldData$pam=res.pam$clustering
 ```
 
 #### 3. Verify cluster ordering. 
 
 ```{r}
-aggregate(data=fromPy[,c(3:7,15)], .~pam,median)
+aggregate(data=worldData[,c(3,9,13,15)],
+          .~pam,
+          median)
 ```
 
-Assign the right label:
+Assign the right label (not always easy):
 ```{r}
-fromPy$pam= factor(fromPy$pam,
+worldData$pam= factor(worldData$pam,
        level=c(4,3,2,1), #ascending
        label=c(1,2,3,4), #labels
        ordered = T)
@@ -365,16 +363,16 @@ fromPy$pam= factor(fromPy$pam,
 We could compare:
 
 ```{r}
-table(fromPy$Regime_type,fromPy$pam)
+table(worldData$Regime_type,worldData$pam)
 ```
-As you see, the clustering technique did not have the same countries in each level proposed by *The Economist*. All the countries in The Economist considered *Authoritarian* are also in that category in our clusters, but ours consider two more countries from what The Economist considers *Hybrid regime*.
+As you see, the clusters in which countries are do not match exactly in the regime type model.
 
 Let me plot the clusters in a scatter plot: 
 
 ```{r}
-base=ggplot(data=fromPy)
-scat=base + geom_point(aes(x=HDI,
-                           y=mil_expend,
+base=ggplot(data=worldData)
+scat=base + geom_point(aes(x=HDIndex,
+                           y=DefenseIndex,
                            color=pam))
 scat
 ```
@@ -404,27 +402,26 @@ badPAMNames=row.names(badPAM)
 Let me show these in a scatter plot:
 
 ```{r}
-condition=ifelse(fromPy$Country %in% badPAMNames,
-                 fromPy$Country,
+condition=ifelse(worldData$Country %in% badPAMNames,
+                 worldData$Country,
                  '')
 
-scat + geom_text_repel(x=fromPy$HDI,
-                       y=fromPy$mil_expend,
+scat + geom_text_repel(x=worldData$HDIndex,
+                       y=worldData$DefenseIndex,
                        label=condition,
                        angle=60,
                        nudge_y = 8)
 ```
 
-We should see how the world looks like based on democracy clusters. Let me upload the map I created in Python:
+We should see how the world looks like based on democracy clusters. Let's  upload a map:
 
 ```{r}
-fromGit="https://github.com/UW-eScience-WinterSchool/Python_Session/raw/main/mymap.geojson" # link desde github
 library(sf)
-mapWorld=read_sf(fromGit)
+mapWorld=read_sf("mymap.geojson")
 ```
 
 
-The plan is to color the countries according to a group, which will result from clustering. 
+The plan is to color the countries according to the cluster they belong. 
 
 
 ```{r, eval=TRUE}
@@ -432,16 +429,18 @@ The plan is to color the countries according to a group, which will result from 
 head(mapWorld)
 ```
 
-Let's add our data to the map data by merging:
+Let's merge our data into the map:
 
 ```{r, eval=TRUE}
 mapWorldVars=merge(mapWorld, #map first
-                   fromPy, 
+                   worldData, 
                    by='ISO3') 
 ```
 
 
-Let's do it step by step:
+Let's do the map step by step:
+
+1. Plot the map (basemap):
 
 ```{r}
 library(ggplot2)
@@ -465,7 +464,8 @@ clusterMap
 Now you choose the palette (get it from [here](http://colorbrewer2.org/)):
 
 ```{r}
-clusterMap+ scale_fill_brewer(palette ='YlOrRd')
+clusterMap+ scale_fill_brewer(palette ='YlOrRd',
+                              direction = -1)
 ```
 
 Some more customization:
@@ -473,12 +473,11 @@ Some more customization:
 ```{r}
 #previously
 theLegLabels=c('1_worst',2,3,'4_best')
-theLegTitle="Democracy Level\n(grey is missing)"
+theLegTitle="DemoHumanDef_index"
 
 #now
 clusterMap+ scale_fill_brewer(palette ='YlOrRd',
-                              direction = -1, # color order
-                              labels=theLegLabels,
+                              direction = -1,                               labels=theLegLabels,
                               name=theLegTitle)
 ```
 
@@ -504,10 +503,10 @@ These may be the easiest functions:
 # hypothesis 1:
 
 # The more countries expend in armed forces 
-# the better HDI:
+# the better HDIndex:
 
-hypo1=formula(HDI~mil_expend)
-regre1=lm(hypo1,data = fromPy)
+hypo1=formula(HDIndex~mil_expend)
+regre1=lm(hypo1,data = worldData)
 
 
 ```
@@ -530,9 +529,9 @@ Let's try another hypothesis:
 ```{r}
 # hypothesis 2:
 
-# The more countries expend in armed forces and the more democratic, the better HDI 
-hypo2=formula(HDI~mil_expend  + DemoIndex)
-regre2=lm(hypo2,data = fromPy)
+# The more countries expend in armed forces and the more democratic, the better HDIndex 
+hypo2=formula(HDIndex~mil_expend  + DemoIndex)
+regre2=lm(hypo2,data = worldData)
 ```
 
 Result:
