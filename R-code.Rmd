@@ -28,24 +28,25 @@ _____
 
 # Opening data files
 
-There are different ways to open files. Each requires a different function. But if you install **rio** you may find this easier. **AFTER** installing that library, activate it:
+There are different ways to open files. Each requires a different function. In our case, we will open an **rds** file:
 ```{r}
-library(rio)
+worldData=readRDS('allmerged.rds')
 ```
 
-The function you use is:
-```{r}
-linkXL='https://github.com/UW-eScience-WinterSchool/Python_Session/raw/main/demohdimil.xlsx'
-dataExcel=import(linkXL)
+If you have a format different than **rds**, like Excel or Stata, you may try:
+```{r, eval=FALSE}
+library(rio)
+worldData=import('somename.extension')
 ```
+
 
 You have the data now. You can see WHAT you have like this:
 
 ```{r}
-str(dataExcel)
+str(worldData)
 ```
 
-You have  the data frame you created in Python in the previous session. But you may have noticed that here you have the variable *Regime_type* as a **char**, not as an ordinal. You now see you lost that in this Excel version. Let's see the R version.
+This is the data frame you created in Python in the previous session. And you may have noticed the variable *Regime_type* has kept the **ordinal** conversion we did. If had saved that file in a different formar, you would have lost that change.
 
 The R version does **NOT** use *rio*:
 
