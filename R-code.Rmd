@@ -505,7 +505,7 @@ These may be the easiest functions:
 # The more countries expend in armed forces 
 # the better HDIndex:
 
-hypo1=formula(HDIndex~mil_expend)
+hypo1=formula(HDIndex~DefenseIndex)
 regre1=lm(hypo1,data = worldData)
 
 
@@ -530,7 +530,7 @@ Let's try another hypothesis:
 # hypothesis 2:
 
 # The more countries expend in armed forces and the more democratic, the better HDIndex 
-hypo2=formula(HDIndex~mil_expend  + DemoIndex)
+hypo2=formula(HDIndex~DefenseIndex  + DemoIndex)
 regre2=lm(hypo2,data = worldData)
 ```
 
