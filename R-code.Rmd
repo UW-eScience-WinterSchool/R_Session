@@ -20,6 +20,7 @@ Session contents:
 * [Operations on Data frames](#operations)
 * [Basic plotting](#plotting)
 * [Basic Clustering ](#clustering)
+* [Basic CFA ](#cfa)
 * [Basic Regression](#regress)
 
 _____
@@ -29,33 +30,33 @@ _____
 # Opening data files
 
 There are different ways to open files. Each requires a different function. In our case, we will open an **rds** file like this:
-```{r}
+```{r, eval=TRUE}
 worldData=readRDS('allmerged.rds')
 ```
 
 If you have a format different than **rds**, like Excel or Stata, you may try:
 
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 library(rio)
-worldData=import('somename.extension')
+#worldData=import('somename.extension')
 ```
 
 
 You have the data now. You can see WHAT you have like this:
 
-```{r}
+```{r, eval=TRUE}
 str(worldData)
 ```
 
 This is the data frame you created in Python in the previous session. And you may have noticed the variable *Regime_type* has kept the **ordinal** conversion we did. If had saved that file in a different format, you would have lost that change .
 
 However, something of Python remains:
-```{r}
+```{r, eval=TRUE}
 head(worldData)
 ```
 
 The index starts with '0', so we only reset the index for R:
-```{r}
+```{r, eval=TRUE}
 row.names(worldData)=NULL   # reset indexes from Python.
 ```
 
@@ -79,18 +80,18 @@ Let's see some operation on data frames:
 
 * What is the country with highest HDIndex?
 
-```{r}
+```{r, eval=TRUE}
 # you could get more than one
 worldData[worldData$HDIndex==max(worldData$HDIndex,na.rm=TRUE),]
 ```
 
-```{r}
+```{r, eval=TRUE}
 #or
 worldData[which(worldData$HDIndex==max(worldData$HDIndex,na.rm = T)),]
 ```
 
 You also have:
-```{r}
+```{r, eval=TRUE}
 #or
 worldData[which.max(worldData$HDIndex),'Country']
 ```
@@ -98,7 +99,7 @@ worldData[which.max(worldData$HDIndex),'Country']
 Alternatively:
 
 
-```{r}
+```{r, eval=TRUE}
 library(magrittr)
 library(dplyr)
 
@@ -110,14 +111,14 @@ worldData%>%
 
 * What is the authoritarian country with highest HDIndex?
 
-```{r}
+```{r, eval=TRUE}
 
 AUTH=worldData[worldData$Regime_type %in% 'Authoritarian',]
 AUTH[which.max(AUTH$HDIndex),'Country']
 ```
 
 Alternatively,
-```{r}
+```{r, eval=TRUE}
 worldData%>%
     filter(Regime_type %in% 'Authoritarian')%>%
     filter(HDIndex==max(HDIndex))%>%
@@ -129,11 +130,11 @@ worldData%>%
 
 The average DefenseIndex per Regime:
 
-```{r}
+```{r, eval=TRUE}
 aggregate(data=worldData,DefenseIndex ~ Regime_type,FUN=mean)
 ```
 
-```{r}
+```{r, eval=TRUE}
 worldData%>%
     group_by(Regime_type) %>% 
     summarise(meanHDIndex = mean(DefenseIndex))
@@ -141,14 +142,14 @@ worldData%>%
 
 The median of the democracy components by regime:
 
-```{r}
+```{r, eval=TRUE}
 aggregate(data=worldData[,c(2,4:8)],
           .~Regime_type,
           FUN=median)
 ```
 
 Or:
-```{r}
+```{r, eval=TRUE}
 worldData[,c(2,4:8)]%>%
     group_by(Regime_type) %>% 
     summarise_all(list(median))
@@ -159,8 +160,9 @@ worldData[,c(2,4:8)]%>%
 
 Let's create one column:
 
-```{r}
-condition=worldData$HDIndex>median(worldData$HDIndex,na.rm = T)
+```{r, eval=TRUE}
+condition=worldData$HDIndex>median(worldData$HDIndex,
+                                   na.rm = T)
 worldData$HDIndexdico=ifelse(condition,1,0)
 #result
 table(worldData$HDIndexdico)
@@ -191,25 +193,25 @@ base + geom_histogram(aes(x=HDIndex)) #x for histogram
 
 a different **geom**:
 
-```{r}
+```{r, eval=TRUE}
 base + geom_boxplot(aes(y=HDIndex))#y for boxplot
 ```
 
 Let me plot Regime type, a categorical variable:
 
-```{r}
+```{r, eval=TRUE}
 base + geom_bar(aes(x=Regime_type)) 
 ```
 
 Let me see the association between regime type and HDIndex:
-```{r}
+```{r, eval=TRUE}
 base + geom_boxplot(aes(x=Regime_type,
                         y=HDIndex))
 ```
 
 Let me see the correlation between democracy index and Human Development Index:
 
-```{r}
+```{r, eval=TRUE}
 base + geom_point(aes(x=DemoIndex,
                       y=HDIndex)) 
 ```
@@ -217,7 +219,7 @@ base + geom_point(aes(x=DemoIndex,
 Let me see  the correlations among the main three variables we have. For that you need the coefficients and the p_values,and the installation and use of **ggcorrplot**.
 
 
-```{r}
+```{r, eval=TRUE}
 library(ggcorrplot)
 #all correlations:
 indexes=c("HDIndex","DemoIndex","DefenseIndex")
@@ -229,7 +231,7 @@ allPvals=cor_pmat(worldData[,indexes],
 ```
 
 Once you have those values, use them here:
-```{r}
+```{r, eval=TRUE}
 ggcorrplot(allCorr,
            p.mat = allPvals,
            type = "lower",
@@ -240,7 +242,7 @@ ggcorrplot(allCorr,
 
 The correlation between HDIndex and Military expenses, while showing Democracy Index regime type:
 
-```{r}
+```{r, eval=TRUE}
 # save result
 scat= base + geom_point(aes(HDIndex,
                         DefenseIndex,
@@ -250,7 +252,7 @@ scat
 ```
 Let me **focus** on some countries:
 
-```{r}
+```{r, eval=TRUE}
 #what countries:
 some=c('Peru','United States')
 
@@ -268,7 +270,7 @@ scat + geom_text(x=worldData$HDIndex,
 
 The *geom_text* requires more work, which can be eased with the help of **ggrepel**:
 
-```{r}
+```{r, eval=TRUE}
 library(ggrepel)
 
 scat + geom_text_repel(x=worldData$HDIndex,
@@ -293,7 +295,7 @@ Let's find an alternative "regime type" using an advanced technique.
 
 **a.** Subset the data frame:
 
-```{r}
+```{r, eval=TRUE}
 dfClus=worldData[,c(3,9,13)] #columns for clustering
 head(dfClus)
 ```
@@ -302,7 +304,7 @@ head(dfClus)
 **b.** Rename the rows:
 
 When country is row name, it is not part of the data:
-```{r}
+```{r, eval=TRUE}
 #to
 row.names(dfClus)=worldData$Country
 head(dfClus)
@@ -311,13 +313,13 @@ head(dfClus)
 **c.** Keep only complete data:
 
 
-```{r}
+```{r, eval=TRUE}
 dfClus=dfClus[complete.cases(dfClus),]
 ```
 
 
 **d.** Compute distance matrix:
-```{r}
+```{r, eval=TRUE}
 library(cluster)
 dfClus_D=cluster::daisy(x=dfClus,metric = 'gower')
 ```
@@ -327,7 +329,7 @@ dfClus_D=cluster::daisy(x=dfClus,metric = 'gower')
 
 #### 1. Apply function: you need to indicate the amount of clusters required.
 
-```{r}
+```{r, eval=TRUE}
 set.seed(123) # for replicability
 numberOfClusters=4
 
@@ -339,20 +341,20 @@ res.pam = pam(x=dfClus_D,
 
 #### 2. Save clustering results. 
 
-```{r}
+```{r, eval=TRUE}
 worldData$pam=res.pam$clustering
 ```
 
 #### 3. Verify cluster ordering. 
 
-```{r}
+```{r, eval=TRUE}
 aggregate(data=worldData[,c(3,9,13,15)],
           .~pam,
           median)
 ```
 
 Assign the right label (not always easy):
-```{r}
+```{r, eval=TRUE}
 worldData$pam= factor(worldData$pam,
        level=c(4,3,2,1), #ascending
        label=c(1,2,3,4), #labels
@@ -362,14 +364,14 @@ worldData$pam= factor(worldData$pam,
 
 We could compare:
 
-```{r}
+```{r, eval=TRUE}
 table(worldData$Regime_type,worldData$pam)
 ```
 As you see, the clusters in which countries are do not match exactly in the regime type model.
 
 Let me plot the clusters in a scatter plot: 
 
-```{r}
+```{r, eval=TRUE}
 base=ggplot(data=worldData)
 scat=base + geom_point(aes(x=HDIndex,
                            y=DefenseIndex,
@@ -381,7 +383,7 @@ scat
 
 The object **res.pam** is saving some important info. One of them is the **silhouette widths**. You know a case has not been well clustered if this value is negative.
 
-```{r}
+```{r, eval=TRUE}
 # get the silhouettes widths:
 eval=as.data.frame(res.pam$silinfo$widths)
 
@@ -394,14 +396,14 @@ badPAM
 ```
 
 Let me keep only the names:
-```{r}
+```{r, eval=TRUE}
 # names of countries are in the row names:
 badPAMNames=row.names(badPAM)
 ```
 
 Let me show these in a scatter plot:
 
-```{r}
+```{r, eval=TRUE}
 condition=ifelse(worldData$Country %in% badPAMNames,
                  worldData$Country,
                  '')
@@ -415,7 +417,7 @@ scat + geom_text_repel(x=worldData$HDIndex,
 
 We should see how the world looks like based on democracy clusters. Let's  upload a map:
 
-```{r}
+```{r, eval=TRUE}
 library(sf)
 mapWorld=read_sf("mymap.geojson")
 ```
@@ -442,7 +444,7 @@ Let's do the map step by step:
 
 1. Plot the map (basemap):
 
-```{r}
+```{r, eval=TRUE}
 library(ggplot2)
 # plot original map
 base=ggplot(data=mapWorld) + geom_sf(fill='grey90',
@@ -454,7 +456,7 @@ base #base map
 
 Now paint the countries (ggplot decides color):
 
-```{r}
+```{r, eval=TRUE}
 clusterMap= base + geom_sf(data=mapWorldVars,
                            aes(fill=pam),
                            color=NA) # color of border
@@ -463,14 +465,14 @@ clusterMap
 
 Now you choose the palette (get it from [here](http://colorbrewer2.org/)):
 
-```{r}
+```{r, eval=TRUE}
 clusterMap+ scale_fill_brewer(palette ='YlOrRd',
                               direction = -1)
 ```
 
 Some more customization:
 
-```{r}
+```{r, eval=TRUE}
 #previously
 theLegLabels=c('1_worst',2,3,'4_best')
 theLegTitle="DemoHumanDef_index"
@@ -481,12 +483,124 @@ clusterMap+ scale_fill_brewer(palette ='YlOrRd',
                               name=theLegTitle)
 ```
 
-```{r}
+```{r, eval=TRUE}
 BadData=mapWorldVars[mapWorldVars$Country%in%badPAMNames,]
 clusterMapBad= base + geom_sf(data=BadData,
                            fill='orange',
                            color=NA) # color of border
 clusterMapBad
+```
+
+[home](#home)
+________
+
+<a id='cfa'></a>
+# <font color="red">FACTOR ANALYSIS</font>
+
+Simply speaking, this technique tries to express in one (or few) dimension(s) the behavior of several others. FA assumes that the several input variables have 'something' in common, there is something **latent** that the set of input variables represent. 
+
+
+Let me subset our original data frame:
+
+```{r, eval=TRUE}
+#current names
+names(worldData)
+```
+
+
+```{r, eval=TRUE}
+selection=c("Country","Electoral_process_and_pluralism","Functioning_of_government","Political_participation","Political_culture","Civil_liberties")
+
+dataForFA=worldData[,selection]
+```
+
+
+Our *dataForFA* data frame has the data to compute the one index we need. I will show the technique called **confirmatory factor analysis**:
+
+
+```{r, eval=TRUE}
+library(lavaan)
+
+model='
+democracy=~Electoral_process_and_pluralism + Functioning_of_government + Political_participation + Political_culture + Civil_liberties
+'
+
+fit<-cfa(model, data = dataForFA,std.lv=TRUE)
+democracy_CFA=lavPredict(fit)
+```
+
+
+The index computed is not in a range from 0 to 10:
+```{r, eval=TRUE}
+democracy_CFA[1:10]
+```
+
+
+We force its return to "0 to 10":
+
+```{r, eval=TRUE}
+library(scales)
+democracy_CFA_Norm=rescale(as.vector(democracy_CFA), 
+                     to = c(0, 10))
+democracy_CFA_Norm[1:10]
+```
+
+So, this is our index:
+```{r, eval=TRUE}
+worldData$demo_CFA=democracy_CFA_Norm
+```
+
+Let me compare the new index with the original score:
+
+```{r, eval=TRUE}
+base=ggplot(data=worldData,
+            aes(x=DemoIndex,y=demo_CFA))
+base+geom_point()
+```
+
+Let me see some evaluation measures of our index for democracy:
+
+```{r, eval=TRUE}
+eval_democracy=parameterEstimates(fit,
+                                  standardized =TRUE)
+```
+
+* Loadings
+```{r, eval=TRUE}
+eval_democracy[eval_democracy$op=="=~",c('rhs','std.all','pvalue')]
+```
+
+* Some coefficients:
+
+```{r, eval=TRUE}
+coeffs_democracy=as.list(fitMeasures(fit))
+```
+
+* You want p.value of Chi-Square greater than 0.05:
+
+```{r, eval=TRUE}
+coeffs_democracy[c("chisq", "df", "pvalue")] 
+```
+
+* You want the Tucker-Lewis > 0.9:
+
+```{r, eval=TRUE}
+coeffs_democracy$tli # > 0.90
+```
+
+* You want RMSEA < 0.05:
+
+```{r, eval=TRUE}
+coeffs_democracy[c( 'rmsea.ci.lower','rmsea','rmsea.ci.upper')] 
+```
+
+You can see how it looks:
+
+```{r, eval=TRUE}
+library(semPlot)
+semPaths(fit, what='std', nCharNodes=0, sizeMan=12,
+         edge.label.cex=1.5, fade=T,residuals = F)
+
 ```
 
 [home](#home)
@@ -499,7 +613,7 @@ ________
 
 These may be the easiest functions:
 
-```{r}
+```{r, eval=TRUE}
 # hypothesis 1:
 
 # The more countries expend in armed forces 
@@ -512,13 +626,13 @@ regre1=lm(hypo1,data = worldData)
 ```
 
 See the result:
-```{r}
+```{r, eval=TRUE}
 summary(regre1)
 ```
 
 You can plot that:
 
-```{r}
+```{r, eval=TRUE}
 library(dotwhisker)
 
 dwplot(regre1) 
@@ -526,7 +640,7 @@ dwplot(regre1)
 
 Let's try another hypothesis:
 
-```{r}
+```{r, eval=TRUE}
 # hypothesis 2:
 
 # The more countries expend in armed forces and the more democratic, the better HDIndex 
@@ -535,19 +649,22 @@ regre2=lm(hypo2,data = worldData)
 ```
 
 Result:
-```{r}
+```{r, eval=TRUE}
 summary(regre2)
 ```
 
-```{r}
+```{r, eval=TRUE}
 dwplot(regre2) + geom_vline(xintercept = 0)
 ```
 
 Which one should I choose?
-```{r}
+```{r, eval=TRUE}
 anova(regre1,regre2)
 ```
 
+## Exercise
+
+REDO all this code using the file **allmerged_new.rds**, and take note of the differences.
 
 [home](#home)
 
